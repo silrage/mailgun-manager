@@ -1,5 +1,33 @@
 <?php
 	include 'auth.php';
+
+	function setTimeZone(){
+		return date_default_timezone_set('Europe/Moscow');
+		// return date_default_timezone_set('Europe/Kaliningrad');
+	};
+	function humanDateToEpoch($str){
+		if($str) {
+			setTimeZone();
+			$date = date_create($str); 
+			return date_format($date, 'U');
+		}else{
+			return NULL;
+		}
+	}
+	function getSplitDate($epoch) {
+		$monthes = array(
+		  1 => 'января', 2 => 'февраля', 3 => 'марта', 4 => 'апреля',
+		  5 => 'мая', 6 => 'июня', 7 => 'июля', 8 => 'августа',
+		  9 => 'сентября', 10 => 'октября', 11 => 'ноября', 12 => 'декабря'
+		);
+		setTimeZone();
+		$nowDate = date('j,n');
+		$date = date('d.m.Y', $epoch);
+		$dateMonth = date('j', $epoch) . ' '. $monthes[(date('n', $epoch))];
+		$time = date('H:i:s', $epoch);
+		return array( 'date'=>$date, 'date_month'=>$dateMonth, 'time'=>$time, 'now'=>$nowDate );
+	}
+
 	function _isCurl(){
 	    return function_exists('curl_version');
 	}
@@ -11,7 +39,10 @@
 			print_r( $obj);
 		}
 	}
-
+	// Sorting
+	function cmp($a, $b) {
+	    return strcmp($b["timestamp"], $a["timestamp"]);
+	}
 	function get($url, $api_key) {
 		if(_isCurl()) {
 			// Connect
@@ -86,44 +117,58 @@
 			$current_page = $_REQUEST['current_page'];
 			$address =	(!empty($_REQUEST['address'])) ? '&address='.$_REQUEST['address'].'&' : '';
 			$type = 	(!empty($_REQUEST['type'])) ? $_REQUEST['type'] : 'bounces';
-			$limit = 	(!empty($_REQUEST['limit'])) ? $_REQUEST['limit'] : 25;
-			$url = 'https://api.mailgun.net/v3/'.$accounts[0][0].'/'.$type.$page.$address.'limit='.$limit;
-			$latest = get($url, $accounts[0][1]);
+			// Limit per account
+			$limit = 	50;
 
-			// For view composite list save is temporary
-			// $stack = [];
-			// foreach($accounts as $key=>$account) {
-			// 	$url = 'https://api.mailgun.net/v3/'.$account[0].'/'.$type.$page.$address.'limit='.$limit;
-			// 	array_push($stack, [
-			// 		'stats'=>get($url, $account[1])['stats'],
-			// 		'account'=>$key
-			// 	]);
-			// }
+			// For composite view get full list
+			$stack = [];
+			$out = [
+				'status'=>FALSE,
+				'object'=>[]
+			];
+			foreach($accounts as $key=>$account) {
+				$url = 'https://api.mailgun.net/v3/'.$account[0].'/'.$type.$page.$address.'limit='.$limit;
+				array_push($stack, [
+					'latest'=>get($url, $account[1]),
+					'account'=>$key
+				]);
+			}
 
-
-			// Parse & set output template
-			if(isset($latest['items'])) {
-				//Get params
-				$out = [
-					// 'request'=>$_REQUEST,
-					// 'test'=>$latest,
-					'status'=>TRUE,
-					// 'url'=>$url,
-					'object'=>$latest['items'],
-					'paging'=>[]
-				];
-				parse_str(parse_url($latest['paging']['previous'])['query'], $out['paging']['previous']);
-				parse_str(parse_url($latest['paging']['next'])['query'], $out['paging']['next']);
-				// When count items less limit show for front-end limiter
-				if(count($latest['items']) < $limit) $out['paging']['no_more'] = TRUE;
-				$out['paging']['first'] = ($current_page == 1) ? TRUE : FALSE;
+			// Clean view
+			/* 
+				[
+					[ 'latest' => ['items'=>[]], 'account'=>'name-1' ],
+					[ 'latest' => [], 'account'=>'name-2' ]
+				]
+			*/
+			$limitPosts = (!empty($_REQUEST['limit'])) ? $_REQUEST['limit'] : 50;
+			$set = 0;
+			foreach($stack as $latest) {
+				if(isset($latest['latest']['items'])) {
+					// Push to out
+					foreach($latest['latest']['items'] as $item) {
+						//Get date object`
+						$epoch = humanDateToEpoch($item['created_at']);
+						$date = getSplitDate($epoch);
+						$object = [
+							'address'=>$item['address'],
+							'timestamp'=>$epoch,
+							'created_at'=>$date['date'].' '.$date['time']
+						];
+						if($set < $limitPosts) {
+							$set++;
+							$out['object'][] = $object;
+						}
+					}
+				}
+			}
+			$out['count'] = $limitPosts;
+			// When found for one item status is success
+			if(isset($out['object'][0])) {
+				$out['status'] = TRUE;
+				usort($out['object'], "cmp");
 			}else{
-				$out = [
-					// 'request'=>$_REQUEST,
-					// 'url'=>$url,
-					'status'=>FALSE,
-					'error'=>"Проверьте интернет соединение, если ошибка повторится свяжитесь с администратором."
-				];
+				$out['error'] = "Данных пока нет";
 			}
 			return output($out);
 		break;
@@ -134,42 +179,55 @@
 			$current_page = $_REQUEST['current_page'];
 			$path = 	json_decode($_REQUEST['path']);
 			$event = 	(!empty($_REQUEST['event'])) ? 'event='.$_REQUEST['event'].'&' : '';
-			$limit = 	(!empty($_REQUEST['limit'])) ? $_REQUEST['limit'] : 25;
-			$url = (empty($path)) ? 'https://api.mailgun.net/v3/'.$accounts[0][0].'/events'.$page.$event.'limit='.$limit : 'https://api.mailgun.net/v3/'.$accounts[0][0].'/events/'.$path;
-			$latest = get($url, $accounts[0][1]);
-			// Parse & set output template
-			if(isset($latest['items'])) {
-				//Get params
-				$out = [
-					'test'=>$latest,
-					'status'=>TRUE,
-					'url'=>$url,
-					'object'=>$latest['items'],
-					'paging'=>[]
-				];
-				// Clean url
-				$ll_next = parse_url($latest['paging']['next'])['path'];
-				$out['paging']['next'] = [
-					'address'=>substr( $ll_next, strpos($ll_next, 'events/')+strlen('events/'), strlen($ll_next) ),
-					'limit'=>$limit,
-					'page'=>'next'
-				];
-				$ll_prev = parse_url($latest['paging']['previous'])['path'];
-				$out['paging']['previous'] = [
-					'address'=>substr( $ll_prev, strpos($ll_prev, 'events/')+strlen('events/'), strlen($ll_prev) ),
-					'limit'=>$limit,
-					'page'=>'previous'
-				];
-				// When count items less limit show for front-end limiter
-				if(count($latest['items']) < $limit) $out['paging']['no_more'] = TRUE;
-				$out['paging']['first'] = ($current_page == 1) ? TRUE : FALSE;
+			// Limit per account
+			$limit = 	50;
+
+			// For composite view get full list
+			$stack = [];
+			$out = [
+				'status'=>FALSE,
+				'object'=>[]
+			];
+			foreach($accounts as $key=>$account) {
+				$url = 'https://api.mailgun.net/v3/'.$account[0].'/events'.$page.$event.'limit='.$limit;
+				array_push($stack, [
+					'latest'=>get($url, $account[1]),
+					'account'=>$key,
+					'url'=>$url
+				]);
+			}
+
+			//Clean view
+			$limitEvents = (!empty($_REQUEST['limit'])) ? $_REQUEST['limit'] : 50;
+			$set = 0;
+			$out['test'] = $stack;
+			foreach($stack as $events) {
+				if(isset($events['latest']['items'])) {
+					// Push to out
+					foreach($events['latest']['items'] as $item) {
+						//Get date object`
+						$epoch = $item['timestamp'];
+						$date = getSplitDate($epoch);
+						$object = [
+							'address'=>$item['recipient'],
+							'timestamp'=>$epoch,
+							'date'=>$date['date'].' '.$date['time'],
+							'geolocation'=>$item['geolocation']
+						];
+						if($set < $limitEvents) {
+							$set++;
+							$out['object'][] = $object;
+						}
+					}
+				}
+			}
+			$out['count'] = $limitEvents;
+			// When found for one item status is success
+			if(isset($out['object'][0])) {
+				$out['status'] = TRUE;
+				usort($out['object'], "cmp");
 			}else{
-				$out = [
-					'request'=>$_REQUEST,
-					'url'=>$url,
-					'status'=>FALSE,
-					'error'=>"Проверьте интернет соединение, если ошибка повторится свяжитесь с администратором."
-				];
+				$out['error'] = "Данных пока нет";
 			}
 			return output($out);
 		break;

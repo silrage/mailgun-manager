@@ -176,7 +176,7 @@
 							</select>
 						</div>
 						<div class="latest-events-limit form-group">
-							<input type="number" class="field form-control" value="5" />
+							<input type="hidden" class="field form-control" value="50" />
 						</div>
 						<div class="latest-events"></div>
 					</div>
@@ -191,7 +191,7 @@
 							</select>
 						</div>
 						<div class="latest-post-limit form-group">
-							<input type="number" class="field form-control" value="5" />
+							<input type="hidden" class="field form-control" value="50" />
 						</div>
 						<div class="latest-posts"></div>
 					</div>
@@ -262,21 +262,21 @@
 			get_latest_events(params, function(result){
 				var content = '';
 				if(result.status) {
-					content += navs(result.paging);
+					// content += navs(result.paging);
 					content += '<table class="table table-striped">';
 					$.each(result.object, function(i,v){
-						var offset = -3,
-							d = new Date(0),
-							date = new Date( d.setUTCSeconds(v.timestamp) );
+						// var offset = -3,
+						// 	d = new Date(0),
+						// 	date = new Date( d.setUTCSeconds(v.timestamp) );
 						content += 
 							`<tr class="item">
-								<td class="created">`+date+`</td>
-								<td class="email">`+v.recipient+`</td>
+								<td class="created">`+v.date+`</td>
+								<td class="email">`+v.address+`</td>
 								<td class="geo" title="`+v.geolocation.country+`">`+v.geolocation.city+`</td>
 							</tr>`;
 					});
 					content += '</table>';
-					content += navs(result.paging);
+					// content += navs(result.paging);
 				}else{
 					var content = result.error;
 				}
@@ -308,7 +308,7 @@
 			get_latest_posts(params, function(result){
 				var content = '';
 				if(result.status) {
-					content += navs(result.paging);
+					// content += navs(result.paging);
 					content += '<table class="table table-striped">';
 					$.each(result.object, function(i,v){
 						content += 
@@ -319,7 +319,7 @@
 							</tr>`;
 					});
 					content += '</table>';
-					content += navs(result.paging);
+					// content += navs(result.paging);
 				}else{
 					var content = result.error;
 				}
