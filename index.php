@@ -13,6 +13,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Mailgun API</title>
+	<link rel="stylesheet" href="fonts/font-awesome.min.css">
 	<link rel="stylesheet" href="bootstrap.min.css">
 	<style type="text/css">
 		.box {
@@ -271,7 +272,17 @@
 						content += 
 							`<tr class="item">
 								<td class="created">`+v.date+`</td>
-								<td class="email">`+v.address+`</td>
+								<td class="email"><b>`+v.address+`</b></td>
+								`;
+								if(v.campaign.status){
+									content += `
+									<td class="campaign">
+										<span class="title">`+v.campaign.name+`</span>
+										<a href="`+v.campaign.url+`" target="_blank">
+											<i class="fa fa-external-link"></i>
+										</a></td>`;
+								}
+						content += `
 								<td class="geo" title="`+v.geolocation.country+`">`+v.geolocation.city+`</td>
 							</tr>`;
 					});
@@ -314,8 +325,8 @@
 						content += 
 							`<tr class="item">
 								<td class="created">`+v.created_at+`</td>
-								<td class="email">`+v.address+`</td>
-								<td class="code" title="`+v.error+`">`+v.code+`</td>
+								<td class="email"><b>`+v.address+`</b></td>
+								<td class="code" title="`+v.error+`">`+v.code+v.tag+`</td>
 							</tr>`;
 					});
 					content += '</table>';
@@ -408,25 +419,31 @@
 		get_analytics({}, function(result){
 			stats(result, function(stat){
 				anychart.onDocumentReady(function() {
-					var chart = anychart.line();
+					var chart = anychart.column();
 					chart.title("Последняя статистика по рассылкам");
 					chart.container("diagram")
-					var line1 = chart.spline(stat.line1);
-					line1.stroke("#ff4223");
-					line1.hoverStroke("#ff4223", 2);
-					line1.selectStroke("#ff4223", 4);
+					// Clicks
+					var line1 = chart.column(stat.line1);
+					line1.fill("#FF3333", 1);
+					line1.stroke("#FF3333");
+					line1.hoverStroke("#FF3333", 2);
+					line1.selectStroke("#FF3333", 4);
 					var line1Tooltip = line1.tooltip();
 					line1Tooltip.textFormatter("{%name}: {%Value}");
-					var line2 = chart.spline(stat.line2);
-					line2.stroke("#2aaeec", 1);
-					line2.hoverStroke("#2aaeec", 2);
-					line2.selectStroke("#2aaeec", 4);
+					// Opens
+					var line2 = chart.column(stat.line2);
+					line2.fill("#4fff43", 1);
+					line2.stroke("#4fff43");
+					line2.hoverStroke("#4fff43", 2);
+					line2.selectStroke("#4fff43", 4);
 					var line2Tooltip = line2.tooltip();
 					line2Tooltip.textFormatter("{%name}: {%Value}");
-					var line3 = chart.spline(stat.line3);
-					line3.stroke("#3fec20", 1);
-					line3.hoverStroke("#3fec20", 2);
-					line3.selectStroke("#3fec20", 4);
+					// Delivered
+					var line3 = chart.column(stat.line3);
+					line3.fill("#8df4ff", 1);
+					line3.stroke("#8df4ff");
+					line3.hoverStroke("#8df4ff", 2);
+					line3.selectStroke("#8df4ff", 4);
 					var line3Tooltip = line3.tooltip();
 					line3Tooltip.textFormatter("{%name}: {%Value}");
 

@@ -65,6 +65,30 @@
 			return 'CURL is not run!';
 		}
 	}
+	// Simple parser and prefixer for attach info about email campaign
+	function campaign($item){
+		$campaign=[
+			'status'=>FALSE,
+			'name'=>NULL,
+			'url'=>NULL
+		];
+		// Check item for version
+		if(isset($item['tags'][0])) {
+			$campaign['name'] = $item['tags'][0];
+			$campaign['url'] = 'http://glonasssoft.ru/images/subscribe/'.$item['tags'][0].'/index.html';
+			$campaign['status'] = TRUE;
+		}else{
+			// Old version find cname from utm or pathname (when html-version mail)
+			if(strpos($item['url'], 'gs-') !== FALSE) {
+				$gcname = substr($item['url'], strpos($item['url'], 'gs-'), strlen($item['url']));
+				$cname = (strpos($gcname, '&') !== FALSE) ? substr($gcname, 0, strpos($gcname, '&')) : substr($gcname, 0, strpos($gcname, '/'));
+				$campaign['url'] = $item['url'];
+				$campaign['name'] = $cname;
+				$campaign['status'] = TRUE;
+			}
+		}
+		return $campaign;
+	}
 
 
 	$task = $_REQUEST['task'];
@@ -102,7 +126,7 @@
 		case 'analytics':
 			$stack = [];
 			foreach($accounts as $key=>$account) {
-				$url = 'https://api.mailgun.net/v3/'.$account[0].'/stats/total?event=delivered&event=failed&event=opened&event=clicked&event=unsubscribed&duration=31d';
+				$url = 'https://api.mailgun.net/v3/'.$account[0].'/stats/total?event=accepted&event=delivered&event=failed&event=opened&event=clicked&event=unsubscribed&duration=31d';
 				array_push($stack, [
 					'stats'=>get($url, $account[1])['stats'],
 					'account'=>$key
@@ -153,16 +177,19 @@
 						$object = [
 							'address'=>$item['address'],
 							'timestamp'=>$epoch,
-							'created_at'=>$date['date'].' '.$date['time']
+							'created_at'=>$date['date'].' '.$date['time'],
+							'error'=>(isset($item['error'])) ? $item['error'] : '',
+							'code'=>(isset($item['code'])) ? $item['code'] : '',
+							'tag'=>(isset($item['tag'])) ? $item['tag'] : ''
 						];
-						if($set < $limitPosts) {
+						// if($set < $limitPosts) {
 							$set++;
 							$out['object'][] = $object;
-						}
+						// }
 					}
 				}
 			}
-			$out['count'] = $limitPosts;
+			$out['count'] = count($out['object']);//$limitPosts;
 			// When found for one item status is success
 			if(isset($out['object'][0])) {
 				$out['status'] = TRUE;
@@ -180,7 +207,7 @@
 			$path = 	json_decode($_REQUEST['path']);
 			$event = 	(!empty($_REQUEST['event'])) ? 'event='.$_REQUEST['event'].'&' : '';
 			// Limit per account
-			$limit = 	50;
+			$limit = 	100;
 
 			// For composite view get full list
 			$stack = [];
@@ -200,7 +227,7 @@
 			//Clean view
 			$limitEvents = (!empty($_REQUEST['limit'])) ? $_REQUEST['limit'] : 50;
 			$set = 0;
-			$out['test'] = $stack;
+			// $out['test'] = $stack;
 			foreach($stack as $events) {
 				if(isset($events['latest']['items'])) {
 					// Push to out
@@ -208,20 +235,29 @@
 						//Get date object`
 						$epoch = $item['timestamp'];
 						$date = getSplitDate($epoch);
+						
 						$object = [
 							'address'=>$item['recipient'],
+							'campaign'=>campaign($item),
 							'timestamp'=>$epoch,
 							'date'=>$date['date'].' '.$date['time'],
-							'geolocation'=>$item['geolocation']
+							'geolocation'=>$item['geolocation'],
+							'multi'=>FALSE
 						];
-						if($set < $limitEvents) {
+						// if($set < $limitEvents) {
 							$set++;
 							$out['object'][] = $object;
-						}
+						// }
 					}
 				}
 			}
-			$out['count'] = $limitEvents;
+			$out['count'] = count($out['object']);//$limitEvents;
+
+			// When in period day found current address grouping them enable
+			// foreach($out['object'] as $email) {
+				// if()
+			// }
+
 			// When found for one item status is success
 			if(isset($out['object'][0])) {
 				$out['status'] = TRUE;
