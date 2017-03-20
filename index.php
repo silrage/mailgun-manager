@@ -30,15 +30,28 @@
 			margin: 5px;
 			padding: 10px;
 		}
+		#diagram .bg {
+			position: absolute;
+		    left: 0;
+		    right: 0;
+		    margin: auto;
+		    width: 600px;
+		    height: 500px;
+		}
+		.box .latest-events,
+		.box .latest-posts {
+			min-height: 350px;
+			position: relative;
+		}
 		.loader {
-		  position: fixed;
+		  position: absolute;
 		  margin: auto;
 		  width: 100px;
 		  top: 0;
 		  bottom: 0;
 		  left: 0;
 		  right: 0;
-		  z-index: 9999;
+		  z-index: -1;
 		}
 		.loader:before {
 			content: '';
@@ -164,7 +177,9 @@
 				</div>
 				
 				<div class="row">
-					<div id="diagram" class="col-md-12" style="height: 600px"></div>
+					<div id="diagram" class="col-md-12" style="height: 600px">
+						<div class="bg"></div>
+					</div>
 				</div>
 
 				<div class="row">
@@ -218,6 +233,7 @@
 			})
 		}
 		function get_analytics(obj, callback) {
+			$('#diagram .bg').html(loader);
 			$.ajax('app.php?task=analytics').done(function(resp){
 				return callback(resp);
 			})
